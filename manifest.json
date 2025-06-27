@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Cursor Usage Details",
+  "version": "1.0.0",
+  "description": "Display detailed Cursor usage statistics",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://www.cursor.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://www.cursor.com/dashboard*"],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["usage.html", "usage.js", "usage.css"],
+      "matches": ["https://www.cursor.com/*"]
+    }
+  ]
+} 
