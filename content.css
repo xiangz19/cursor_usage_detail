@@ -1,0 +1,4 @@
+/* Content script styles - minimal since everything is inline */
+#cursor-usage-circle {
+  /* All styles are inline in content.js for better isolation */
+} 

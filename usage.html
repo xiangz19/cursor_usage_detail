@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cursor Usage Details</title>
+    <link rel="stylesheet" href="usage.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Cursor Usage Statistics</h1>
+            <div class="controls">
+                <select id="yearSelect">
+                    <option value="2024">2024</option>
+                    <option value="2025" selected>2025</option>
+                </select>
+                <select id="monthSelect">
+                    <option value="0">January</option>
+                    <option value="1">February</option>
+                    <option value="2">March</option>
+                    <option value="3">April</option>
+                    <option value="4">May</option>
+                    <option value="5">June</option>
+                    <option value="6">July</option>
+                    <option value="7">August</option>
+                    <option value="8">September</option>
+                    <option value="9">October</option>
+                    <option value="10">November</option>
+                    <option value="11">December</option>
+                </select>
+            </div>
+        </header>
+
+        <div id="loading" class="loading">Loading...</div>
+        <div id="error" class="error" style="display: none;"></div>
+
+        <section id="summary" class="summary" style="display: none;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <h2 style="margin-bottom: 0;">Summary</h2>
+                <span style="font-size: 0.95em; color: #888; font-weight: 400;">Only the first 500 requests (including tool calls) are shown.</span>
+            </div>
+            <table class="summary-table">
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Today</th>
+                        <th>Total</th>
+                        <th>Last 4 Hours</th>
+                        <th>Last 24 Hours</th>
+                        <th>Last 48 Hours</th>
+                    </tr>
+                </thead>
+                <tbody id="summaryBody">
+                </tbody>
+            </table>
+        </section>
+
+        <section id="details" class="details" style="display: none;">
+            <h2>Details</h2>
+            <div class="table-wrapper">
+                <table class="details-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Time</th>
+                            <th>Type</th>
+                            <th>Model</th>
+                            <th>Requests</th>
+                            <th>Product</th>
+                            <th>Slow?</th>
+                            <th>Status</th>
+                            <th>Other</th>
+                            <th>fastApply</th>
+                            <th>Max</th>
+                            <th>Token Based</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detailsBody">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <script src="usage.js"></script>
+</body>
+</html> 
