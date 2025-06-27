@@ -1,5 +1,7 @@
 # Cursor Usage Details Chrome Extension
 
+![Screenshot of Cursor Usage Details Extension UI](./screenshot.png)
+
 A Chrome extension that provides detailed usage statistics for Cursor.
 
 ## Features
