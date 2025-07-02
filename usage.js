@@ -36,20 +36,40 @@ class CursorUsageStats {
         this.hideError();
         
         try {
-            const response = await fetch('https://www.cursor.com/api/dashboard/get-monthly-invoice', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    month: month,
-                    year: year,
-                    includeUsageEvents: true
-                })
-            });
+            // Try cursor.com first (covers cn and other subdomains), then fallback to www.cursor.com
+            const endpoints = [
+                'https://cursor.com/api/dashboard/get-monthly-invoice',
+                'https://www.cursor.com/api/dashboard/get-monthly-invoice'
+            ];
             
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+            let response;
+            let lastError;
+            
+            for (const endpoint of endpoints) {
+                try {
+                    response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            month: month,
+                            year: year,
+                            includeUsageEvents: true
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        break; // Success, exit the loop
+                    }
+                } catch (err) {
+                    lastError = err;
+                    continue; // Try next endpoint
+                }
+            }
+            
+            if (!response || !response.ok) {
+                throw new Error(`HTTP error! status: ${response?.status || 'Network error'}`);
             }
             
             const data = await response.json();
@@ -78,6 +98,23 @@ class CursorUsageStats {
         
         // Filter out fastApply events
         this.processedEvents = aggregated.filter(event => event.type !== 'fastApply');
+    }
+    
+    // Safe JSON stringify to avoid CSP violations
+    safeStringify(obj) {
+        try {
+            // Create a sanitized version without functions or dangerous content
+            const sanitized = JSON.parse(JSON.stringify(obj, (key, value) => {
+                if (typeof value === 'function') return '[Function]';
+                if (typeof value === 'symbol') return '[Symbol]';
+                if (typeof value === 'undefined') return '[Undefined]';
+                return value;
+            }));
+            return JSON.stringify(sanitized);
+        } catch (error) {
+            console.error('Safe stringify failed:', error);
+            return '[Object]';
+        }
     }
     
     parseEvent(event) {
@@ -109,7 +146,7 @@ class CursorUsageStats {
         }
         
         if (type === 'other') {
-            typeOther = JSON.stringify(details);
+            typeOther = this.safeStringify(details);
         }
         
         // Calculate request count - prioritize priceCents calculation per guide
