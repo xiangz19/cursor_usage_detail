@@ -19,9 +19,12 @@ A Chrome extension that provides detailed usage statistics for Cursor.
 
 ## Usage
 
-1. Navigate to `https://www.cursor.com/dashboard?tab=usage`
-2. Click the blue circle in the top-right corner
-3. View your detailed usage statistics in the new tab
+**Two ways to access your usage statistics:**
+
+1. **Extension Icon**: Click the extension icon in your browser toolbar to open the usage page directly
+2. **Blue Circle**: Navigate to `https://cursor.com/dashboard?tab=usage` and click the blue circle in the top-right corner
+
+Both methods will open your detailed usage statistics in a new tab.
 
 ## Project Prompt & Guide
 
@@ -32,7 +35,7 @@ The full prompt/specification used to create this extension is available in [CHR
 - `manifest.json` - Extension configuration
 - `content.js` - Injects blue circle on Cursor dashboard
 - `usage.html/js/css` - Main usage statistics interface
-- `background.js` - Service worker
+- `background.js` - Service worker with icon click handler
 - `CHROME_EXTENSION_GUIDE.md` - Full prompt/specification for this project
 
 ## Requirements

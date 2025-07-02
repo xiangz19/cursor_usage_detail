@@ -1,18 +1,25 @@
 {
   "manifest_version": 3,
   "name": "Cursor Usage Details",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Display detailed Cursor usage statistics",
   "permissions": [
     "activeTab",
     "storage"
   ],
   "host_permissions": [
-    "https://www.cursor.com/*"
+    "https://www.cursor.com/*",
+    "https://cursor.com/*"
   ],
+  "action": {
+    "default_title": "Open Cursor Usage Details"
+  },
   "content_scripts": [
     {
-      "matches": ["https://www.cursor.com/*dashboard*"],
+      "matches": [
+        "https://www.cursor.com/*dashboard*",
+        "https://cursor.com/*dashboard*"
+      ],
       "js": ["content.js"],
       "css": ["content.css"]
     }
@@ -23,7 +30,10 @@
   "web_accessible_resources": [
     {
       "resources": ["usage.html", "usage.js", "usage.css"],
-      "matches": ["https://www.cursor.com/*"]
+      "matches": [
+        "https://www.cursor.com/*",
+        "https://cursor.com/*"
+      ]
     }
   ]
 } 
