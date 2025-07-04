@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cursor Usage Dashboard</title>
+    <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Cursor Usage Dashboard</h1>
+            <div class="version-info">
+                <span class="version-badge">New Version</span>
+            </div>
+        </header>
+
+        <div id="loading" class="loading">
+            <div class="loading-text">Loading usage data...</div>
+            <div id="progress" class="progress-info" style="display: none;">
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
+                <div id="progress-text" class="progress-text">Fetching events...</div>
+            </div>
+        </div>
+        <div id="error" class="error" style="display: none;"></div>
+
+        <section id="summary" class="summary-section" style="display: none;">
+            <h2>Summary</h2>
+            <div class="table-wrapper">
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>Metric</th>
+                            <th>Last 4 Hours</th>
+                            <th>Last 24 Hours</th>
+                            <th>Last 48 Hours</th>
+                            <th>Last 7 Days</th>
+                            <th id="billing-header">Billing</th>
+                            <th id="calendar-header">Calendar</th>
+                        </tr>
+                    </thead>
+                    <tbody id="summaryBody">
+                        <tr>
+                            <td><strong>Requests Costs</strong></td>
+                            <td id="requests-4h">-</td>
+                            <td id="requests-24h">-</td>
+                            <td id="requests-48h">-</td>
+                            <td id="requests-7d">-</td>
+                            <td id="requests-billing">-</td>
+                            <td id="requests-calendar">-</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Total Costs (USD)</strong></td>
+                            <td id="total-4h">-</td>
+                            <td id="total-24h">-</td>
+                            <td id="total-48h">-</td>
+                            <td id="total-7d">-</td>
+                            <td id="total-billing">-</td>
+                            <td id="total-calendar">-</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Usage Based Costs</strong></td>
+                            <td id="usage-4h">-</td>
+                            <td id="usage-24h">-</td>
+                            <td id="usage-48h">-</td>
+                            <td id="usage-7d">-</td>
+                            <td id="usage-billing">-</td>
+                            <td id="usage-calendar">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="details" class="details-section" style="display: none;">
+            <h2>Usage Events Detail</h2>
+            <div class="table-wrapper">
+                <table class="details-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Timestamp</th>
+                            <th>Model</th>
+                            <th>Kind</th>
+                            <th>Requests Costs</th>
+                            <th>Total Cents</th>
+                            <th>Usage Based Costs</th>
+                            <th>Token Based</th>
+                            <th>Max Mode</th>
+                            <th>Input Tokens</th>
+                            <th>Output Tokens</th>
+                            <th>Cache Write</th>
+                            <th>Cache Read</th>
+                            <th>Owning User</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detailsBody">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <script src="dashboard.js"></script>
+</body>
+</html> 
