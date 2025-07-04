@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Cursor Usage Details",
-  "version": "1.0.2",
+  "version": "2.0.0",
   "description": "Display detailed Cursor usage statistics",
   "permissions": [
     "activeTab",
@@ -29,7 +29,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["usage.html", "usage.js", "usage.css"],
+      "resources": ["usage.html", "usage.js", "usage.css", "dashboard.html", "dashboard.js", "dashboard.css"],
       "matches": [
         "https://www.cursor.com/*",
         "https://cursor.com/*"

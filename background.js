@@ -11,6 +11,6 @@ chrome.runtime.onStartup.addListener(() => {
 // Handle extension icon click
 chrome.action.onClicked.addListener((tab) => {
   chrome.tabs.create({
-    url: chrome.runtime.getURL('usage.html')
+    url: chrome.runtime.getURL('dashboard.html')
   });
 }); 
