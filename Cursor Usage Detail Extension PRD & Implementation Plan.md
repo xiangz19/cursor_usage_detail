@@ -1,6 +1,6 @@
 # **PRD & Implementation Plan: Cursor Usage Stats Extension**
 
-Version: 1.1  
+Version: 2.0  
 Date: July 5, 2025  
 Author: Gemini
 

@@ -27,6 +27,12 @@ A Chrome extension that provides detailed usage statistics for Cursor with two d
 - **Data Details**: Raw usage events with complete token information and cost breakdown
 - **Performance**: Sequential pagination with progress updates (300 events per page)
 
+### Version 2.1 (Latest - Caching & Performance)
+- **Local Caching**: IndexedDB-based caching system for significantly faster subsequent loads
+- **Smart Data Synchronization**: Only fetches new/updated data from server, preserving historical data locally
+- **Cache Management**: User controls to clear current month's cache or all cache data, located in the top right corner of the header, inline and smaller
+- **Details Table Paging**: Supports paging for large datasets, with a page size dropdown (10, 50, 200, 500; default 10). 
+
 ## Installation
 
 1. Open Chrome and go to `chrome://extensions/`
@@ -48,7 +54,9 @@ A Chrome extension that provides detailed usage statistics for Cursor with two d
 
 The full prompt/specification used to create this extension is available in [CHROME_EXTENSION_GUIDE.md](./CHROME_EXTENSION_GUIDE.md). This document describes the requirements, data processing, and UI logic in detail.
 
-The PRD specification for Version 2 (new version) is available in [Cursor Usage Detail Extension PRD & Implementation Plan.md](./Cursor%20Usage%20Detail%20Extension%20PRD%20%26%20Implementation%20Plan.md). This document contains the comprehensive requirements and implementation plan for the advanced dashboard.
+The PRD specification for Version 2 (new version) is available in [Cursor Usage Detail Extension PRD & Implementation Plan.md](./Cursor%20Usage%20Detail%20Extension%20PRD%20%26%20Implementation%20Plan.md).
+
+The PRD specification for Version 2.1 (caching & performance enhancements) is available in [PRD V2.1 - Caching & Performance Enhancements.md](./PRD%20V2.1%20-%20Caching%20%26%20Performance%20Enhancements.md). This document outlines the caching implementation and performance improvements.
 
 ## Files
 
@@ -59,6 +67,7 @@ The PRD specification for Version 2 (new version) is available in [Cursor Usage 
 - `background.js` - Service worker with icon click handler
 - `CHROME_EXTENSION_GUIDE.md` - Full prompt/specification for Version 1
 - `Cursor Usage Detail Extension PRD & Implementation Plan.md` - PRD specification for Version 2
+- `PRD V2.1 - Caching & Performance Enhancements.md` - PRD specification for Version 2.1
 
 ## Requirements
 
