@@ -590,8 +590,8 @@ class CursorUsageDashboard {
             const totalCents = filteredEvents.reduce((sum, event) => sum + (event.tokenUsage?.totalCents || 0), 0);
             const totalCostsUSD = totalCents / 100;
             const usageBasedCosts = filteredEvents.reduce((sum, event) => {
-                const cost = event.usageBasedCosts === "-" ? 0 : (event.usageBasedCosts || 0);
-                return sum + cost;
+                const cost = event.usageBasedCosts === "-" ? 0 : parseFloat(event.usageBasedCosts || 0);
+                return sum + (isNaN(cost) ? 0 : cost);
             }, 0);
             
             document.getElementById(`requests-${timeframe.id}`).textContent = requestsCosts.toFixed(2);
@@ -640,7 +640,8 @@ class CursorUsageDashboard {
             const kind = (event.kind || '').replace(/^USAGE_EVENT_KIND_/, '');
             const requestsCosts = (event.requestsCosts || 0).toFixed(2);
             const totalCents = (event.tokenUsage?.totalCents || 0).toFixed(2);
-            const usageBasedCosts = event.usageBasedCosts === "-" ? "0.00" : (event.usageBasedCosts || 0).toFixed(2);
+            const usageValue = event.usageBasedCosts === "-" ? 0 : parseFloat(event.usageBasedCosts || 0);
+            const usageBasedCosts = (isNaN(usageValue) ? 0 : usageValue).toFixed(2);
             const isTokenBasedCall = event.isTokenBasedCall ? 'Yes' : 'No';
             const maxMode = event.maxMode ? 'Yes' : 'No';
             const maxModeClass = event.maxMode ? 'max-mode-cell' : '';
