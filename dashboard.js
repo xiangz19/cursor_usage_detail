@@ -1,3 +1,209 @@
+// IndexedDB wrapper for caching usage events
+class UsageCache {
+    constructor() {
+        this.dbName = 'CursorUsageCache';
+        this.version = 1;
+        this.db = null;
+    }
+
+    async init() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(this.dbName, this.version);
+            
+            request.onerror = () => reject(new Error('Failed to open IndexedDB'));
+            request.onsuccess = () => {
+                this.db = request.result;
+                resolve();
+            };
+            
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                
+                // Create events store with timestamp as key
+                if (!db.objectStoreNames.contains('events')) {
+                    const eventsStore = db.createObjectStore('events', { keyPath: 'timestamp' });
+                    eventsStore.createIndex('timestamp', 'timestamp', { unique: true });
+                }
+                
+                // Create metadata store
+                if (!db.objectStoreNames.contains('metadata')) {
+                    db.createObjectStore('metadata', { keyPath: 'key' });
+                }
+            };
+        });
+    }
+
+    async getMetadata(key) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['metadata'], 'readonly');
+            const store = transaction.objectStore('metadata');
+            const request = store.get(key);
+            
+            request.onerror = () => reject(new Error(`Failed to get metadata: ${key}`));
+            request.onsuccess = () => {
+                const result = request.result;
+                console.log(`Getting metadata for ${key}:`, result);
+                resolve(result ? result.value : null);
+            };
+        });
+    }
+
+    async setMetadata(key, value) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['metadata'], 'readwrite');
+            const store = transaction.objectStore('metadata');
+            const request = store.put({ key, value });
+            
+            request.onerror = () => reject(new Error(`Failed to set metadata: ${key}`));
+            request.onsuccess = () => {
+                console.log(`Setting metadata for ${key}:`, value);
+                resolve();
+            };
+        });
+    }
+
+    async getEvents(startTimestamp, endTimestamp) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['events'], 'readonly');
+            const store = transaction.objectStore('events');
+
+            // Use keyPath directly, not index
+            const range = IDBKeyRange.bound(
+                String(startTimestamp),
+                String(endTimestamp)
+            );
+
+            const request = store.getAll(range);
+
+            request.onerror = () => reject(new Error('Failed to get events from cache'));
+            request.onsuccess = () => {
+                const result = request.result || [];
+                console.log(`✅ Retrieved ${result.length} events from cache for range ${startTimestamp} to ${endTimestamp}`);
+                resolve(result);
+            };
+        });
+    }
+
+    async saveEvents(events) {
+        if (!events || events.length === 0) return;
+        
+        console.log(`Saving ${events.length} events to cache`);
+        
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['events'], 'readwrite');
+            const store = transaction.objectStore('events');
+            
+            let completed = 0;
+            let hasError = false;
+            
+            events.forEach(event => {
+                const request = store.put(event);
+                request.onerror = () => {
+                    if (!hasError) {
+                        hasError = true;
+                        reject(new Error('Failed to save events to cache'));
+                    }
+                };
+                request.onsuccess = () => {
+                    completed++;
+                    if (completed === events.length && !hasError) {
+                        console.log(`Successfully saved ${events.length} events to cache`);
+                        resolve();
+                    }
+                };
+            });
+        });
+    }
+
+    async deleteEvents(startTimestamp, endTimestamp) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['events'], 'readwrite');
+            const store = transaction.objectStore('events');
+            const index = store.index('timestamp');
+            const request = index.openCursor(IDBKeyRange.bound(startTimestamp, endTimestamp));
+            
+            let completed = 0;
+            let hasError = false;
+            
+            request.onerror = () => {
+                if (!hasError) {
+                    hasError = true;
+                    reject(new Error('Failed to delete events from cache'));
+                }
+            };
+            
+            request.onsuccess = (event) => {
+                const cursor = event.target.result;
+                if (cursor) {
+                    const deleteRequest = cursor.delete();
+                    deleteRequest.onerror = () => {
+                        if (!hasError) {
+                            hasError = true;
+                            reject(new Error('Failed to delete event from cache'));
+                        }
+                    };
+                    deleteRequest.onsuccess = () => {
+                        completed++;
+                        cursor.continue();
+                    };
+                } else {
+                    if (!hasError) {
+                        resolve(completed);
+                    }
+                }
+            };
+        });
+    }
+
+    async clearAll() {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['events', 'metadata'], 'readwrite');
+            const eventsStore = transaction.objectStore('events');
+            const metadataStore = transaction.objectStore('metadata');
+            
+            const eventsRequest = eventsStore.clear();
+            const metadataRequest = metadataStore.clear();
+            
+            let completed = 0;
+            let hasError = false;
+            
+            const checkComplete = () => {
+                completed++;
+                if (completed === 2 && !hasError) {
+                    resolve();
+                }
+            };
+            
+            eventsRequest.onerror = () => {
+                if (!hasError) {
+                    hasError = true;
+                    reject(new Error('Failed to clear events'));
+                }
+            };
+            eventsRequest.onsuccess = checkComplete;
+            
+            metadataRequest.onerror = () => {
+                if (!hasError) {
+                    hasError = true;
+                    reject(new Error('Failed to clear metadata'));
+                }
+            };
+            metadataRequest.onsuccess = checkComplete;
+        });
+    }
+
+    async clearCurrentMonth() {
+        const now = new Date();
+        const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+        
+        // Delete events from current month start onwards
+        await this.deleteEvents(currentMonthStart, Date.now());
+        
+        // Update cache_end to current month start
+        await this.setMetadata('cache_end', currentMonthStart);
+    }
+}
+
 class CursorUsageDashboard {
     constructor() {
         this.loading = document.getElementById('loading');
@@ -15,6 +221,12 @@ class CursorUsageDashboard {
         this.billingStartDate = null;
         this.queryStartDate = null;
         
+        // Initialize cache
+        this.cache = new UsageCache();
+        
+        this.detailsCurrentPage = 1;
+        this.detailsPageSize = 10;
+        
         this.init();
     }
     
@@ -27,6 +239,9 @@ class CursorUsageDashboard {
         this.hideError();
         
         try {
+            // Initialize cache
+            await this.cache.init();
+            
             // Step 1: Get User ID
             await this.fetchUserID();
             
@@ -36,10 +251,13 @@ class CursorUsageDashboard {
             // Step 3: Determine Query Start Date
             this.determineQueryStartDate();
             
-            // Step 4: Fetch All Usage Events
-            await this.fetchAllUsageEvents();
+            // Step 4: Data Synchronization with Caching
+            await this.synchronizeData();
             
-            // Process and render data
+            // Step 5: Load final data for display
+            await this.loadFinalData();
+            
+            // Step 6: Process and render data
             this.renderDashboard();
             
         } catch (error) {
@@ -50,38 +268,59 @@ class CursorUsageDashboard {
     }
     
     async fetchUserID() {
+        // Try to get from cache first
+        const cachedUserSub = await this.cache.getMetadata('user_sub');
+        if (cachedUserSub) {
+            this.userSub = cachedUserSub;
+            return;
+        }
+        // Otherwise, fetch from API
         const response = await fetch('https://cursor.com/api/auth/me', {
             method: 'GET',
             credentials: 'include'
         });
-        
         if (!response.ok) {
             throw new Error(`Failed to fetch user ID: ${response.status}`);
         }
-        
         const data = await response.json();
         this.userSub = data.sub;
-        
         if (!this.userSub) {
             throw new Error('User sub not found in response');
         }
+        // Cache user sub in metadata
+        await this.cache.setMetadata('user_sub', this.userSub);
     }
     
     async fetchBillingStartDate() {
+        // Try to get from cache first
+        const cachedBillingStart = await this.cache.getMetadata('billing_start_date');
+        if (cachedBillingStart) {
+            const billingDate = new Date(parseInt(cachedBillingStart, 10));
+            const now = new Date();
+            const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+            if (billingDate >= oneMonthAgo) {
+                this.billingStartDate = billingDate;
+                return;
+            }
+        }
+        // Otherwise, fetch from API
         const response = await fetch(`https://cursor.com/api/usage?user=${this.userSub}`, {
             method: 'GET',
             credentials: 'include'
         });
-        
         if (!response.ok) {
             throw new Error(`Failed to fetch billing start date: ${response.status}`);
         }
-        
         const data = await response.json();
         this.billingStartDate = new Date(data.startOfMonth);
-        
         if (!this.billingStartDate) {
             throw new Error('Billing start date not found in response');
+        }
+        // Cache billing start date in metadata if within one month from now
+        const now = new Date();
+        const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+        if (this.billingStartDate >= oneMonthAgo) {
+            await this.cache.setMetadata('billing_start_date', this.billingStartDate.getTime());
         }
     }
     
@@ -95,12 +334,82 @@ class CursorUsageDashboard {
             : firstDayOfCurrentMonth;
     }
     
-    async fetchAllUsageEvents() {
+    async synchronizeData() {
         const now = new Date();
-        const startTimestamp = this.queryStartDate.getTime();
-        const endTimestamp = now.getTime();
+        const requiredStart = this.queryStartDate.getTime();
+        const requiredEnd = now.getTime();
         
-        this.allUsageEvents = [];
+        // Get cache boundaries
+        const cacheStart = await this.cache.getMetadata('cache_start');
+        const cacheEnd = await this.cache.getMetadata('cache_end');
+        
+        console.log('Cache boundaries:', { cacheStart, cacheEnd, requiredStart, requiredEnd });
+        
+        this.progress.style.display = 'block';
+        this.progressText.textContent = 'Synchronizing data...';
+        
+        // Step 2a: Fill Historical Gap
+        if (!cacheStart || requiredStart < cacheStart) {
+            console.log('Fetching historical gap:', { requiredStart, cacheStart, end: cacheStart || requiredEnd });
+            this.progressText.textContent = 'Fetching historical data...';
+            const historicalEvents = await this.fetchAllUsageEvents(requiredStart, cacheStart || requiredEnd);
+            console.log('Historical events fetched:', historicalEvents.length);
+            if (historicalEvents.length > 0) {
+                await this.cache.saveEvents(historicalEvents);
+                await this.cache.setMetadata('cache_start', requiredStart);
+            }
+        }
+        
+        // Step 2b: Fill Recent Gap
+        const recentStart = cacheEnd ? (cacheEnd - 30 * 60 * 1000) : requiredStart; // 30 minutes overlap
+        console.log('Fetching recent gap:', { recentStart, requiredEnd, cacheEnd });
+        this.progressText.textContent = 'Fetching recent data...';
+        const recentEvents = await this.fetchAllUsageEvents(recentStart, requiredEnd);
+        console.log('Recent events fetched:', recentEvents.length);
+        
+        if (recentEvents.length > 0) {
+            // Delete overlapping events and save new ones
+            if (cacheEnd) {
+                await this.cache.deleteEvents(recentStart, cacheEnd);
+            }
+            await this.cache.saveEvents(recentEvents);
+            await this.cache.setMetadata('cache_end', requiredEnd);
+        }
+        
+        // If no cache existed at all, set the boundaries
+        if (!cacheStart && !cacheEnd) {
+            await this.cache.setMetadata('cache_start', requiredStart);
+            await this.cache.setMetadata('cache_end', requiredEnd);
+        }
+        
+        this.progressText.textContent = 'Data synchronization complete';
+    }
+    
+    async loadFinalData() {
+        const now = new Date();
+        const requiredStart = this.queryStartDate.getTime();
+        const requiredEnd = now.getTime();
+        
+        console.log('Loading final data from cache:', { requiredStart, requiredEnd });
+        
+        this.progressText.textContent = 'Loading cached data...';
+        
+        // Load final data from cache
+        this.allUsageEvents = await this.cache.getEvents(requiredStart, requiredEnd);
+        console.log('Events loaded from cache:', this.allUsageEvents.length);
+        
+        // Sort by timestamp DESCENDING (latest first)
+        this.allUsageEvents.sort((a, b) => {
+            const timestampA = typeof a.timestamp === 'string' ? parseInt(a.timestamp) : a.timestamp;
+            const timestampB = typeof b.timestamp === 'string' ? parseInt(b.timestamp) : b.timestamp;
+            return timestampB - timestampA;
+        });
+        
+        this.progressText.textContent = `Loaded ${this.allUsageEvents.length} events from cache`;
+    }
+    
+    async fetchAllUsageEvents(startTimestamp, endTimestamp) {
+        const events = [];
         
         // Show progress indicator
         this.progress.style.display = 'block';
@@ -130,7 +439,7 @@ class CursorUsageDashboard {
         
         // Add events from first page
         if (firstData.usageEventsDisplay) {
-            this.allUsageEvents.push(...firstData.usageEventsDisplay);
+            events.push(...firstData.usageEventsDisplay);
         }
         
         // Calculate total pages needed
@@ -139,7 +448,7 @@ class CursorUsageDashboard {
         
         // Update progress after first page
         this.progressFill.style.width = `${Math.min((1 / totalPages) * 100, 100)}%`;
-        this.progressText.textContent = `Fetched page 1 of ${totalPages} (${this.allUsageEvents.length} events)`;
+        this.progressText.textContent = `Fetched page 1 of ${totalPages} (${events.length} events)`;
         
         // Fetch remaining pages if needed
         if (totalPages > 1) {
@@ -165,13 +474,13 @@ class CursorUsageDashboard {
                 
                 const data = await response.json();
                 if (data.usageEventsDisplay) {
-                    this.allUsageEvents.push(...data.usageEventsDisplay);
+                    events.push(...data.usageEventsDisplay);
                 }
                 
                 // Update progress after each page
                 const progress = (page / totalPages) * 100;
                 this.progressFill.style.width = `${Math.min(progress, 100)}%`;
-                this.progressText.textContent = `Fetched page ${page} of ${totalPages} (${this.allUsageEvents.length} events)`;
+                this.progressText.textContent = `Fetched page ${page} of ${totalPages} (${events.length} events)`;
                 
                 // Small delay to show progress
                 await new Promise(resolve => setTimeout(resolve, 100));
@@ -180,8 +489,12 @@ class CursorUsageDashboard {
         
         // Final progress update
         this.progressFill.style.width = '100%';
-        this.progressText.textContent = `Completed! Fetched ${this.allUsageEvents.length} events from ${totalPages} pages`;
+        this.progressText.textContent = `Completed! Fetched ${events.length} events from ${totalPages} pages`;
+        
+        return events;
     }
+    
+
     
     renderDashboard() {
         this.renderSummary();
@@ -189,6 +502,47 @@ class CursorUsageDashboard {
         
         this.summary.style.display = 'block';
         this.details.style.display = 'block';
+        this.setupCacheManagement();
+        this.setupDetailsPaging();
+    }
+    
+    setupCacheManagement() {
+        const cacheSection = document.getElementById('cache-management');
+        const clearCurrentMonthBtn = document.getElementById('clearCurrentMonth');
+        const clearAllCacheBtn = document.getElementById('clearAllCache');
+        
+        cacheSection.style.display = 'block';
+        
+        clearCurrentMonthBtn.addEventListener('click', () => this.clearCurrentMonthCache());
+        clearAllCacheBtn.addEventListener('click', () => this.clearAllCache());
+    }
+    
+    async clearCurrentMonthCache() {
+        if (!confirm('Are you sure you want to clear the current month\'s cache? This will force a re-fetch of all data from the current month onwards.')) {
+            return;
+        }
+        
+        try {
+            await this.cache.clearCurrentMonth();
+            alert('Current month cache cleared. Reloading...');
+            location.reload();
+        } catch (error) {
+            this.showError(`Failed to clear current month cache: ${error.message}`);
+        }
+    }
+    
+    async clearAllCache() {
+        if (!confirm('Are you sure you want to clear all cache? This will force a complete re-fetch of all data.')) {
+            return;
+        }
+        
+        try {
+            await this.cache.clearAll();
+            alert('All cache cleared. Reloading...');
+            location.reload();
+        } catch (error) {
+            this.showError(`Failed to clear all cache: ${error.message}`);
+        }
     }
     
     renderSummary() {
@@ -247,12 +601,17 @@ class CursorUsageDashboard {
     }
     
     renderDetails() {
-        // Debug: log first event structure to console
-        if (this.allUsageEvents.length > 0) {
-            console.log('First event structure:', this.allUsageEvents[0]);
-        }
-        
-        const tableRows = this.allUsageEvents.map((event, index) => {
+        const totalEvents = this.allUsageEvents.length;
+        const pageSize = this.detailsPageSize;
+        const totalPages = Math.max(1, Math.ceil(totalEvents / pageSize));
+        const currentPage = Math.min(this.detailsCurrentPage, totalPages);
+        this.detailsCurrentPage = currentPage;
+        const startIdx = (currentPage - 1) * pageSize;
+        const endIdx = Math.min(startIdx + pageSize, totalEvents);
+        const pageEvents = this.allUsageEvents.slice(startIdx, endIdx);
+
+        // Render table rows for current page
+        const tableRows = pageEvents.map((event, index) => {
             // Handle timestamp - it's in milliseconds, convert to readable format
             let timestamp = 'Invalid Date';
             if (event.timestamp) {
@@ -293,7 +652,7 @@ class CursorUsageDashboard {
             
             return `
                 <tr>
-                    <td>${index + 1}</td>
+                    <td>${startIdx + index + 1}</td>
                     <td>${timestamp}</td>
                     <td>${model}</td>
                     <td>${kind}</td>
@@ -312,6 +671,55 @@ class CursorUsageDashboard {
         }).join('');
         
         this.detailsBody.innerHTML = tableRows;
+        // Render paging controls
+        this.renderDetailsPaging(totalPages, currentPage);
+    }
+    
+    renderDetailsPaging(totalPages, currentPage) {
+        const renderControls = (containerId) => {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            let html = '';
+            if (totalPages > 1) {
+                html += `<button ${currentPage === 1 ? 'disabled' : ''} data-page="1">&#171; First</button>`;
+                html += `<button ${currentPage === 1 ? 'disabled' : ''} data-page="${currentPage - 1}">&#8249; Prev</button>`;
+                // Show up to 5 page numbers
+                let start = Math.max(1, currentPage - 2);
+                let end = Math.min(totalPages, currentPage + 2);
+                if (currentPage <= 3) end = Math.min(5, totalPages);
+                if (currentPage >= totalPages - 2) start = Math.max(1, totalPages - 4);
+                for (let i = start; i <= end; i++) {
+                    html += `<button class="${i === currentPage ? 'current-page' : ''}" data-page="${i}">${i}</button>`;
+                }
+                html += `<button ${currentPage === totalPages ? 'disabled' : ''} data-page="${currentPage + 1}">Next &#8250;</button>`;
+                html += `<button ${currentPage === totalPages ? 'disabled' : ''} data-page="${totalPages}">Last &#187;</button>`;
+            } else {
+                html = '';
+            }
+            container.innerHTML = html;
+            // Add event listeners
+            Array.from(container.querySelectorAll('button[data-page]')).forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const page = parseInt(btn.getAttribute('data-page'), 10);
+                    if (!isNaN(page) && page !== this.detailsCurrentPage) {
+                        this.detailsCurrentPage = page;
+                        this.renderDetails();
+                    }
+                });
+            });
+        };
+        renderControls('detailsPageTop');
+        renderControls('detailsPageBottom');
+    }
+    
+    setupDetailsPaging() {
+        const pageSizeSelect = document.getElementById('detailsPageSize');
+        pageSizeSelect.value = this.detailsPageSize;
+        pageSizeSelect.addEventListener('change', (e) => {
+            this.detailsPageSize = parseInt(e.target.value, 10);
+            this.detailsCurrentPage = 1;
+            this.renderDetails();
+        });
     }
     
     showLoading(show) {

@@ -10,8 +10,11 @@
     <div class="container">
         <header>
             <h1>Cursor Usage Dashboard</h1>
-            <div class="version-info">
-                <span class="version-badge">New Version</span>
+            <div class="header-actions">
+                <section id="cache-management" class="cache-section-inline" style="display: none;">
+                    <button id="clearCurrentMonth" class="cache-btn cache-btn-small">Clear Current Month's Cache</button>
+                    <button id="clearAllCache" class="cache-btn cache-btn-small">Clear All Cache</button>
+                </section>
             </div>
         </header>
 
@@ -76,24 +79,34 @@
 
         <section id="details" class="details-section" style="display: none;">
             <h2>Usage Events Detail</h2>
+            <div class="details-controls">
+                <div id="detailsPageTop" class="details-paging"></div>
+                <label for="detailsPageSize">Page size:</label>
+                <select id="detailsPageSize">
+                    <option value="10" selected>10</option>
+                    <option value="50">50</option>
+                    <option value="200">200</option>
+                    <option value="500">500</option>
+                </select>
+            </div>
             <div class="table-wrapper">
                 <table class="details-table">
                     <thead>
                         <tr>
-                            <th>#</th>
-                            <th>Timestamp</th>
-                            <th>Model</th>
-                            <th>Kind</th>
-                            <th>Requests Costs</th>
-                            <th>Total Cents</th>
-                            <th>Usage Based Costs</th>
-                            <th>Token Based</th>
-                            <th>Max Mode</th>
-                            <th>Input Tokens</th>
-                            <th>Output Tokens</th>
-                            <th>Cache Write</th>
-                            <th>Cache Read</th>
-                            <th>Owning User</th>
+                            <th style="min-width: 60px;">#</th>
+                            <th>TIMESTAMP</th>
+                            <th>MODEL</th>
+                            <th>KIND</th>
+                            <th>REQUESTS COSTS</th>
+                            <th>TOTAL CENTS</th>
+                            <th>USAGE BASED COSTS</th>
+                            <th>TOKEN BASED</th>
+                            <th>MAX MODE</th>
+                            <th>INPUT TOKENS</th>
+                            <th>OUTPUT TOKENS</th>
+                            <th>CACHE WRITE</th>
+                            <th>CACHE READ</th>
+                            <th>OWNING USER</th>
                         </tr>
                     </thead>
                     <tbody id="detailsBody">
