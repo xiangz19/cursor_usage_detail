@@ -11,6 +11,7 @@ class UsageCache {
             const request = indexedDB.open(this.dbName, this.version);
             
             request.onerror = () => reject(new Error('Failed to open IndexedDB'));
+            
             request.onsuccess = () => {
                 this.db = request.result;
                 resolve();
@@ -19,16 +20,70 @@ class UsageCache {
             request.onupgradeneeded = (event) => {
                 const db = event.target.result;
                 
-                // Create events store with timestamp as key
+                // Create events object store
                 if (!db.objectStoreNames.contains('events')) {
-                    const eventsStore = db.createObjectStore('events', { keyPath: 'timestamp' });
-                    eventsStore.createIndex('timestamp', 'timestamp', { unique: true });
+                    const eventsStore = db.createObjectStore('events', { keyPath: 'id', autoIncrement: true });
+                    eventsStore.createIndex('timestamp', 'timestamp', { unique: false });
                 }
                 
-                // Create metadata store
+                // Create metadata object store
                 if (!db.objectStoreNames.contains('metadata')) {
                     db.createObjectStore('metadata', { keyPath: 'key' });
                 }
+            };
+        });
+    }
+
+    async saveEvents(events) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['events'], 'readwrite');
+            const store = transaction.objectStore('events');
+            
+            let completed = 0;
+            let hasError = false;
+            
+            if (events.length === 0) {
+                resolve();
+                return;
+            }
+            
+            const addEvent = (event) => {
+                const request = store.add({
+                    ...event,
+                    timestamp: typeof event.timestamp === 'string' ? parseInt(event.timestamp) : event.timestamp
+                });
+                
+                request.onerror = () => {
+                    if (!hasError) {
+                        hasError = true;
+                        reject(new Error('Failed to save event to cache'));
+                    }
+                };
+                
+                request.onsuccess = () => {
+                    completed++;
+                    if (completed === events.length && !hasError) {
+                        resolve();
+                    }
+                };
+            };
+            
+            events.forEach(addEvent);
+        });
+    }
+
+    async getEvents(startTimestamp, endTimestamp) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['events'], 'readonly');
+            const store = transaction.objectStore('events');
+            const index = store.index('timestamp');
+            const request = index.getAll(IDBKeyRange.bound(startTimestamp, endTimestamp));
+            
+            request.onerror = () => reject(new Error('Failed to get events from cache'));
+            
+            request.onsuccess = () => {
+                const events = request.result || [];
+                resolve(events);
             };
         });
     }
@@ -40,9 +95,9 @@ class UsageCache {
             const request = store.get(key);
             
             request.onerror = () => reject(new Error(`Failed to get metadata: ${key}`));
+            
             request.onsuccess = () => {
                 const result = request.result;
-                console.log(`Getting metadata for ${key}:`, result);
                 resolve(result ? result.value : null);
             };
         });
@@ -55,63 +110,10 @@ class UsageCache {
             const request = store.put({ key, value });
             
             request.onerror = () => reject(new Error(`Failed to set metadata: ${key}`));
+            
             request.onsuccess = () => {
-                console.log(`Setting metadata for ${key}:`, value);
                 resolve();
             };
-        });
-    }
-
-    async getEvents(startTimestamp, endTimestamp) {
-        return new Promise((resolve, reject) => {
-            const transaction = this.db.transaction(['events'], 'readonly');
-            const store = transaction.objectStore('events');
-
-            // Use keyPath directly, not index
-            const range = IDBKeyRange.bound(
-                String(startTimestamp),
-                String(endTimestamp)
-            );
-
-            const request = store.getAll(range);
-
-            request.onerror = () => reject(new Error('Failed to get events from cache'));
-            request.onsuccess = () => {
-                const result = request.result || [];
-                console.log(`✅ Retrieved ${result.length} events from cache for range ${startTimestamp} to ${endTimestamp}`);
-                resolve(result);
-            };
-        });
-    }
-
-    async saveEvents(events) {
-        if (!events || events.length === 0) return;
-        
-        console.log(`Saving ${events.length} events to cache`);
-        
-        return new Promise((resolve, reject) => {
-            const transaction = this.db.transaction(['events'], 'readwrite');
-            const store = transaction.objectStore('events');
-            
-            let completed = 0;
-            let hasError = false;
-            
-            events.forEach(event => {
-                const request = store.put(event);
-                request.onerror = () => {
-                    if (!hasError) {
-                        hasError = true;
-                        reject(new Error('Failed to save events to cache'));
-                    }
-                };
-                request.onsuccess = () => {
-                    completed++;
-                    if (completed === events.length && !hasError) {
-                        console.log(`Successfully saved ${events.length} events to cache`);
-                        resolve();
-                    }
-                };
-            });
         });
     }
 
@@ -210,6 +212,7 @@ class CursorUsageDashboard {
         this.error = document.getElementById('error');
         this.summary = document.getElementById('summary');
         this.details = document.getElementById('details');
+        this.dailyChartSection = document.getElementById('daily-chart-section');
         this.summaryBody = document.getElementById('summaryBody');
         this.detailsBody = document.getElementById('detailsBody');
         this.progress = document.getElementById('progress');
@@ -327,11 +330,15 @@ class CursorUsageDashboard {
     determineQueryStartDate() {
         const now = new Date();
         const firstDayOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
         
-        // Use the earlier of billing start date or first day of current month
-        this.queryStartDate = this.billingStartDate < firstDayOfCurrentMonth 
-            ? this.billingStartDate 
-            : firstDayOfCurrentMonth;
+        // Use the earliest of billing start date, first day of current month, or 30 days ago
+        // This ensures we have enough data for all display modes
+        this.queryStartDate = new Date(Math.min(
+            this.billingStartDate.getTime(),
+            firstDayOfCurrentMonth.getTime(),
+            thirtyDaysAgo.getTime()
+        ));
     }
     
     async synchronizeData() {
@@ -496,12 +503,14 @@ class CursorUsageDashboard {
     
 
     
-    renderDashboard() {
+    async renderDashboard() {
         this.renderSummary();
         this.renderDetails();
+        await this.renderDailyChart();
         
         this.summary.style.display = 'block';
         this.details.style.display = 'block';
+        this.dailyChartSection.style.display = 'block';
         this.setupCacheManagement();
         this.setupDetailsPaging();
     }
@@ -545,6 +554,82 @@ class CursorUsageDashboard {
         }
     }
     
+    async renderDailyChart() {
+        var now = new Date();
+        var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        var days = 30;
+        var dailyData = {};
+        for (var i = days - 1; i >= 0; i--) {
+            var d = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
+            var day = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+            dailyData[day] = 0;
+        }
+        var startTime = today.getTime() - (days - 1) * 24 * 60 * 60 * 1000;
+        
+        // Use existing events instead of reloading from cache
+        const chartEvents = this.allUsageEvents.filter(event => {
+            let timestampValue = event.timestamp;
+            if (!timestampValue) {
+                const timeProps = ['createdAt', 'created_at', 'time', 'eventTime', 'date'];
+                for (const prop of timeProps) {
+                    if (event[prop]) {
+                        timestampValue = event[prop];
+                        break;
+                    }
+                }
+            }
+            if (!timestampValue) return false;
+            const timestampMs = typeof timestampValue === 'string' ? parseInt(timestampValue) : timestampValue;
+            return timestampMs >= startTime && timestampMs <= now.getTime();
+        });
+        
+        chartEvents.forEach(function(event) {
+            var timestampValue = event.timestamp;
+            if (!timestampValue) {
+                var timeProps = ['createdAt', 'created_at', 'time', 'eventTime', 'date'];
+                for (var j = 0; j < timeProps.length; j++) {
+                    var prop = timeProps[j];
+                    if (event[prop]) {
+                        timestampValue = event[prop];
+                        break;
+                    }
+                }
+            }
+            if (!timestampValue) return;
+            var timestampMs = typeof timestampValue === 'string' ? parseInt(timestampValue) : timestampValue;
+            var eventDate = new Date(timestampMs);
+            if (!isNaN(eventDate.getTime())) {
+                var dayStr = eventDate.getFullYear() + '-' + String(eventDate.getMonth() + 1).padStart(2, '0') + '-' + String(eventDate.getDate()).padStart(2, '0');
+                if (dailyData.hasOwnProperty(dayStr)) {
+                    dailyData[dayStr] += (event.requestsCosts || 0);
+                }
+            }
+        });
+        var labels = Object.keys(dailyData);
+        var data = labels.map(function(label) { return dailyData[label]; });
+        var ctx = document.getElementById('dailyUsageChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Requests Costs',
+                    data: data,
+                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+    
     renderSummary() {
         const now = new Date();
         const timeframes = [
@@ -553,7 +638,8 @@ class CursorUsageDashboard {
             { id: '48h', name: 'Last 48 Hours', start: new Date(now.getTime() - 48 * 60 * 60 * 1000) },
             { id: '7d', name: 'Last 7 Days', start: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) },
             { id: 'billing', name: 'Current Month (Billing)', start: this.billingStartDate },
-            { id: 'calendar', name: 'Current Month (Calendar)', start: new Date(now.getFullYear(), now.getMonth(), 1) }
+            { id: 'calendar', name: 'Current Month (Calendar)', start: new Date(now.getFullYear(), now.getMonth(), 1) },
+            { id: '30d', name: 'Last 30 Days', start: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) }
         ];
         
         // Update billing header text with date
@@ -728,6 +814,7 @@ class CursorUsageDashboard {
         if (show) {
             this.summary.style.display = 'none';
             this.details.style.display = 'none';
+            this.dailyChartSection.style.display = 'none';
         }
     }
     
