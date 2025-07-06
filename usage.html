@@ -5,12 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cursor Usage Details</title>
     <link rel="stylesheet" href="usage.css">
+    <script src="chart.umd.min.js" defer></script>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>Cursor Usage Statistics</h1>
             <div class="controls">
+                <select id="modeSelect">
+                    <option value="monthly">Monthly Data</option>
+                    <option value="last30days" selected>Last 30 Days</option>
+                </select>
                 <select id="yearSelect">
                     <option value="2024">2024</option>
                     <option value="2025" selected>2025</option>
@@ -32,7 +37,15 @@
             </div>
         </header>
 
-        <div id="loading" class="loading">Loading...</div>
+        <div id="loading" class="loading">
+            <div class="loading-text">Loading usage data...</div>
+            <div id="progress" class="progress-info" style="display: none;">
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
+                <div id="progress-text" class="progress-text">Fetching events...</div>
+            </div>
+        </div>
         <div id="error" class="error" style="display: none;"></div>
 
         <section id="summary" class="summary" style="display: none;">
@@ -45,7 +58,8 @@
                     <tr>
                         <th>Metric</th>
                         <th>Today</th>
-                        <th>Total</th>
+                        <th>All Data</th>
+                        <th>Last 30 Days</th>
                         <th>Last 4 Hours</th>
                         <th>Last 24 Hours</th>
                         <th>Last 48 Hours</th>
@@ -54,6 +68,13 @@
                 <tbody id="summaryBody">
                 </tbody>
             </table>
+        </section>
+
+        <section id="daily-chart-section" class="daily-chart-section" style="display: none;">
+            <h2>Daily Usage (Last 30 Days)</h2>
+            <div class="chart-container">
+                <canvas id="dailyUsageChart"></canvas>
+            </div>
         </section>
 
         <section id="details" class="details" style="display: none;">

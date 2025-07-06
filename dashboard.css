@@ -96,7 +96,7 @@ h1 {
 }
 
 /* Sections */
-.summary-section, .details-section {
+.summary-section, .details-section, .daily-chart-section {
     background-color: white;
     border-radius: 12px;
     padding: 24px;

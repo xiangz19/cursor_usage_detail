@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cursor Usage Dashboard</title>
     <link rel="stylesheet" href="dashboard.css">
+    <script src="chart.umd.min.js" defer></script>
+    <script src="dashboard.js" defer></script>
 </head>
 <body>
     <div class="container">
@@ -42,6 +44,7 @@
                             <th>Last 7 Days</th>
                             <th id="billing-header">Billing</th>
                             <th id="calendar-header">Calendar</th>
+                            <th>Last 30 Days</th>
                         </tr>
                     </thead>
                     <tbody id="summaryBody">
@@ -53,6 +56,7 @@
                             <td id="requests-7d">-</td>
                             <td id="requests-billing">-</td>
                             <td id="requests-calendar">-</td>
+                            <td id="requests-30d">-</td>
                         </tr>
                         <tr>
                             <td><strong>Total Costs (USD)</strong></td>
@@ -62,6 +66,7 @@
                             <td id="total-7d">-</td>
                             <td id="total-billing">-</td>
                             <td id="total-calendar">-</td>
+                            <td id="total-30d">-</td>
                         </tr>
                         <tr>
                             <td><strong>Usage Based Costs</strong></td>
@@ -71,9 +76,17 @@
                             <td id="usage-7d">-</td>
                             <td id="usage-billing">-</td>
                             <td id="usage-calendar">-</td>
+                            <td id="usage-30d">-</td>
                         </tr>
                     </tbody>
                 </table>
+            </div>
+        </section>
+
+        <section id="daily-chart-section" class="daily-chart-section" style="display: none;">
+            <h2>Daily Usage (Last 30 Days)</h2>
+            <div class="chart-container">
+                <canvas id="dailyUsageChart"></canvas>
             </div>
         </section>
 
@@ -113,9 +126,11 @@
                     </tbody>
                 </table>
             </div>
+            <div class="details-controls">
+                <div id="detailsPageBottom" class="details-paging"></div>
+            </div>
         </section>
     </div>
 
-    <script src="dashboard.js"></script>
 </body>
 </html> 

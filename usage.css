@@ -59,6 +59,38 @@ select:focus {
     color: #6c757d;
 }
 
+.loading-text {
+    margin-bottom: 20px;
+    font-size: 18px;
+    color: #6c757d;
+}
+
+.progress-info {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 6px;
+    background-color: #e9ecef;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: #007bff;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+.progress-text {
+    font-size: 14px;
+    color: #6c757d;
+}
+
 .error {
     background-color: #f8d7da;
     color: #721c24;
@@ -168,4 +200,25 @@ h2 {
     h1 {
         font-size: 1.5rem;
     }
+}
+
+/* Chart styling */
+.daily-chart-section {
+    margin-bottom: 40px;
+}
+
+.chart-container {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    height: 400px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.chart-container canvas {
+    max-width: 100%;
+    height: auto;
 } 
